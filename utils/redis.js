@@ -1,5 +1,4 @@
 import redis from 'redis';
-import { promisify } from 'util';
 
 class RedisClient {
   constructor() {
@@ -17,12 +16,12 @@ class RedisClient {
       });
   }
 
-  async isAlive() {
+  isAlive() {
     return this.isConnected;
   }
 
   async get(key) {
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       this.client.get(key, (err, reply) => {
         if (err) {
           console.log(err);
