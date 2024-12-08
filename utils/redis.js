@@ -3,14 +3,17 @@ import redis from 'redis';
 class RedisClient {
   constructor() {
     this.isConnected = false;
+    this.isConnecting = true;
     this.client = redis.createClient();
     console.log('client is connecting ... please wait');
     this.client
       .on('error', (err) => {
-        console.log(err)
-        reject(err);
+        this.isConnecting = false;
+        console.log(err);
+        throw err;
       })
       .on('ready', () => {
+        this.isConnecting = false;
         this.isConnected = true;
         console.log('client is connected successfully');
       });
@@ -21,7 +24,7 @@ class RedisClient {
   }
 
   async get(key) {
-    return await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       this.client.get(key, (err, reply) => {
         if (err) {
           console.log(err);
@@ -55,8 +58,8 @@ class RedisClient {
         } else {
           resolve(reply);
         }
-      })
-    });;
+      });
+    });
   }
 }
 
