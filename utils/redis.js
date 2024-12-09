@@ -5,7 +5,7 @@ class RedisClient {
     this.isConnected = false;
     this.isConnecting = true;
     this.client = redis.createClient();
-    console.log('redis client is connecting... please wait');
+    // console.log('redis client is connecting... please wait');
     this.client
       .on('error', (err) => {
         this.isConnecting = false;
@@ -15,7 +15,7 @@ class RedisClient {
       .on('ready', () => {
         this.isConnecting = false;
         this.isConnected = true;
-        console.log('redis client is connected successfully');
+        // console.log('redis client is connected successfully');
       });
   }
 
