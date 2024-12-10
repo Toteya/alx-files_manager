@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import dbClient from '../db';
-import redisClient from '../redis';
+import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
 class AuthController {
   static async getConnect(request, response) {
@@ -36,10 +36,10 @@ class AuthController {
   static async getDisconnect(request, response) {
     const token = request.headers['x-token'];
     const key = `auth_${token}`;
-    const userId = await redisClient.get(key)
+    const userId = await redisClient.get(key);
     if (!userId) {
       response.status(401).send({ error: 'Unauthorized' });
-      return null
+      return null;
     }
     redisClient.del(key);
     response.status(204).end();

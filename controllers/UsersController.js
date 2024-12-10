@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { ObjectId } from 'mongodb';
-import dbClient from '../db';
-import redisClient from '../redis';
+import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
 class UsersController {
   static async postNew(request, response) {
