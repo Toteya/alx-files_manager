@@ -1,4 +1,6 @@
 import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -12,14 +14,17 @@ class FilesController {
       return null;
     }
     const {
-      name, type, parentId, isPublic, data,
+      name,
+      type,
+      parentId = 0,
+      isPublic = false,
+      data,
     } = request.body;
     if (!name) {
       response.status(400).send({ error: 'Missing name' });
       return null;
     }
     if (!type || !(['folder', 'file', 'image'].includes(type))) {
-      // console.log('BODY: ', request.body)
       response.status(400).send({ error: 'Missing type' });
       return null;
     }
@@ -46,30 +51,48 @@ class FilesController {
       },
     };
     files.updateOne(filter, updateDoc);
-    // .catch((err) => console.log(err));
     if (type === 'folder') {
-      const file = await files.insertOne({
-        name, type, parentId, isPublic, data,
-      });
-      response.status(201).end();
-      return file;
+      files.insertOne({
+        name,
+        type,
+        parentId,
+        isPublic,
+      })
+        .then((result) => {
+          response.status(201).send(result.ops[0]);
+        });
+      return null;
     }
-    const localPath = `./${name}`;
+    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const localPath = path.join(folderPath, uuidv4());
     FilesController.createFile(localPath, data);
     files.insertOne({
-      userId, name, type, parentId, isPublic, data, localPath,
+      userId,
+      name,
+      type,
+      parentId,
+      isPublic,
+      localPath,
     })
-      .then((file) => {
-        response.status(201).end();
-        return file;
+      .then((result) => {
+        response.status(201).send(result.ops[0]);
       });
     return null;
   }
 
-  static async createFile(path, contentBase64) {
-    const buff = Buffer.from(contentBase64, 'base64');
-    const content = buff.toString('utf-8');
-    return fs.writeFile(path, content, () => {});
+  static async createFile(localPath, contentBase64) {
+    const dir = path.dirname(localPath);
+    fs.mkdir(dir, { recursive: true }, (err) => {
+      if (err) {
+        console.log(err);
+      } else {
+        const buff = Buffer.from(contentBase64, 'base64');
+        const content = buff.toString('utf-8');
+        fs.writeFile(localPath, content, (err) => {
+          if (err) console.log(err);
+        });
+      }
+    });
   }
 }
 
