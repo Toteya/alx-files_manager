@@ -8,18 +8,15 @@ class UsersController {
     const { email } = request.body;
     const { password } = request.body;
     if (!email) {
-      response.status(400).send({ error: 'Missing email' });
-      return null;
+      return response.status(400).send({ error: 'Missing email' });
     }
     if (!password) {
-      response.status(400).send({ error: 'Missing password' });
-      return null;
+      return response.status(400).send({ error: 'Missing password' });
     }
     const users = dbClient.db.collection('users');
     const user = await users.findOne({ email });
     if (user) {
-      response.status(400).send({ error: 'Already exists' });
-      return null;
+      return response.status(400).send({ error: 'Already exists' });
     }
 
     const hash = crypto.createHash('sha1');
@@ -28,7 +25,7 @@ class UsersController {
     const obj = { email, password: SHA1 };
     users.insertOne(obj, (err, result) => {
       if (err) throw err;
-      response.status(200).send({
+      return response.status(200).send({
         id: result.insertedId,
         email,
       });
@@ -42,14 +39,11 @@ class UsersController {
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (!userId) {
-      response.status(401).send({ error: 'Unauthorized' });
-      return null;
+      return response.status(401).send({ error: 'Unauthorized' });
     }
     const users = dbClient.db.collection('users');
     const user = await users.findOne({ _id: ObjectId(userId) });
-    response.status(200).send({ email: user.email, id: userId });
-
-    return null;
+    return response.status(200).send({ email: user.email, id: userId });
   }
 }
 

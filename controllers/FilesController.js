@@ -164,7 +164,7 @@ class FilesController {
     const { id } = request.params;
     const files = dbClient.db.collection('files');
 
-    // Update the file
+    // Update the document
     const filter = { _id: ObjectId(id), userId };
     const updateDoc = {
       $set: {
@@ -188,9 +188,6 @@ class FilesController {
     const token = request.headers['x-token'];
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
-    // if (!userId) {
-    //   return response.status(401).send({ error: 'Unauthorized' });
-    // }
 
     const { id } = request.params;
     const files = dbClient.db.collection('files');
