@@ -2,6 +2,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { ObjectId } from 'mongodb';
+import mime from 'mime-types';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -117,7 +118,6 @@ class FilesController {
     // Retrieve data from DB with pagination
     const pageSize = 20;
     try {
-      console.log('PARENT ID: ', parentId);
       const matchStage = parentId ? { parentId } : {};
       const pipeline = [
         {
@@ -153,6 +153,7 @@ class FilesController {
   }
 
   static async publish(request, response, makePublic) {
+    // Called by endpoints putPublish and putUnpublish
     const token = request.headers['x-token'];
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
@@ -163,6 +164,7 @@ class FilesController {
     const { id } = request.params;
     const files = dbClient.db.collection('files');
 
+    // Update the file
     const filter = { _id: ObjectId(id), userId };
     const updateDoc = {
       $set: {
@@ -182,7 +184,46 @@ class FilesController {
     return null;
   }
 
+  static async getFile(request, response) {
+    const token = request.headers['x-token'];
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    // if (!userId) {
+    //   return response.status(401).send({ error: 'Unauthorized' });
+    // }
+
+    const { id } = request.params;
+    const files = dbClient.db.collection('files');
+
+    files.findOne({ _id: ObjectId(id) })
+      .then((file) => {
+        if (!file) {
+          return response.status(404).send({ error: 'Not found' });
+        }
+        if (!file.isPublic && (!userId || userId !== file.userId)) {
+          // console.log('FILE NOT FOUND!!!')
+          return response.status(404).send({ error: 'Not found' });
+        }
+        if (file.type === 'folder') {
+          return response.status(400).send({ error: 'A folder doesn\'t have content' });
+        }
+        if (!fs.existsSync(file.localPath)) {
+          return response.status(404).send({ error: 'Not found' });
+        }
+        FilesController.readFileData(file.localPath)
+          .then((data) => {
+            const mimeType = mime.contentType(file.name);
+            response.setHeader('Content-Type', mimeType);
+            return response.status(200).send(data);
+          })
+          .catch((err) => console.log(err));
+        return null;
+      });
+    return null;
+  }
+
   static async createFile(localPath, contentBase64) {
+    // Called by endpoint postUpload - Creates a new file in the given path.
     const dir = path.dirname(localPath);
     fs.mkdir(dir, { recursive: true }, (err) => {
       if (err) {
@@ -194,6 +235,18 @@ class FilesController {
           if (err) console.log(err);
         });
       }
+    });
+  }
+
+  static async readFileData(filePath) {
+    return new Promise((resolve, reject) => {
+      fs.readFile(filePath, 'utf-8', (err, data) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(data);
+        }
+      });
     });
   }
 }
