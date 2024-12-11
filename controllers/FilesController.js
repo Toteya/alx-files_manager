@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -20,6 +21,7 @@ class FilesController {
       isPublic = false,
       data,
     } = request.body;
+
     if (!name) {
       response.status(400).send({ error: 'Missing name' });
       return null;
@@ -32,9 +34,10 @@ class FilesController {
       response.status(400).send({ error: 'Missing data' });
       return null;
     }
+
     const files = dbClient.db.collection('files');
     if (parentId) {
-      const file = await files.findOne({ parentId });
+      const file = await files.findOne({ _id: ObjectId(parentId) });
       if (!file) {
         response.status(400).send({ error: 'Parent not found' });
         return null;
@@ -44,6 +47,7 @@ class FilesController {
         return null;
       }
     }
+
     const filter = { name };
     const updateDoc = {
       $set: {
@@ -63,6 +67,7 @@ class FilesController {
         });
       return null;
     }
+
     const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
     const localPath = path.join(folderPath, uuidv4());
     FilesController.createFile(localPath, data);
@@ -78,6 +83,75 @@ class FilesController {
         response.status(201).send(result.ops[0]);
       });
     return null;
+  }
+
+  static async getShow(request, response) {
+    const token = request.headers['x-token'];
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) {
+      return response.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+    const files = dbClient.db.collection('files');
+    files.findOne({ _id: ObjectId(id), userId })
+      .then((file) => {
+        if (!file) {
+          return response.status(404).send({ error: 'Not found' });
+        }
+        return response.status(200).send(file);
+      });
+    return null;
+  }
+
+  static async getIndex(request, response) {
+    const token = request.headers['x-token'];
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) {
+      response.status(401).send({ error: 'Unauthorized' });
+      return null;
+    }
+
+    // Get query parameters
+    let {
+      parentId = 0,
+      page = '0',
+    } = request.query;
+
+    if (parentId === '0') {
+      parentId = parseInt(parentId, 10);
+    }
+    page = parseInt(page, 10);
+    const files = dbClient.db.collection('files');
+
+    // Retrieve data from DB with pagination
+    const pageSize = 20;
+    try {
+      console.log('PARENT ID: ', parentId);
+      const matchStage = parentId ? { parentId } : {};
+      const pipeline = [
+        {
+          $match: matchStage,
+        },
+        {
+          $facet: {
+            metadata: [{ $count: 'totalCount' }],
+            data: [
+              { $skip: (page) * pageSize },
+              { $limit: pageSize },
+            ],
+          },
+        },
+      ];
+      const results = await files.aggregate(pipeline).toArray();
+      console.log(JSON.stringify(results, null, 2));
+      return response.status(200).send(results[0].data);
+    } catch (err) {
+      console.log(err);
+      return response.status(500).end();
+    }
   }
 
   static async createFile(localPath, contentBase64) {
