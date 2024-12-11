@@ -56,9 +56,7 @@ class FilesController {
         parentId,
         isPublic,
       })
-        .then((result) => {
-          return response.status(201).send(result.ops[0]);
-        });
+        .then((result) => response.status(201).send(result.ops[0]));
       return null;
     }
 
@@ -73,9 +71,7 @@ class FilesController {
       isPublic,
       localPath,
     })
-      .then((result) => {
-        return response.status(201).send(result.ops[0]);
-      });
+      .then((result) => response.status(201).send(result.ops[0]));
     return null;
   }
 
@@ -107,7 +103,6 @@ class FilesController {
       return response.status(401).send({ error: 'Unauthorized' });
     }
 
-    // Get query parameters
     let {
       parentId = 0,
       page = '0',
@@ -139,12 +134,52 @@ class FilesController {
         },
       ];
       const results = await files.aggregate(pipeline).toArray();
-      console.log(JSON.stringify(results, null, 2));
+      // console.log(JSON.stringify(results, null, 2));
       return response.status(200).send(results[0].data);
     } catch (err) {
       console.log(err);
       return response.status(500).end();
     }
+  }
+
+  static async putPublish(request, response) {
+    const makePublic = true;
+    return FilesController.publish(request, response, makePublic);
+  }
+
+  static async putUnpublish(request, response) {
+    const makePublic = false;
+    return FilesController.publish(request, response, makePublic);
+  }
+
+  static async publish(request, response, makePublic) {
+    const token = request.headers['x-token'];
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) {
+      return response.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+    const files = dbClient.db.collection('files');
+
+    const filter = { _id: ObjectId(id), userId };
+    const updateDoc = {
+      $set: {
+        isPublic: makePublic,
+      },
+    };
+    const options = { returnDocument: 'after' };
+
+    files.findOneAndUpdate(filter, updateDoc, options)
+      .then((result) => {
+        const file = result.value;
+        if (!file) {
+          return response.status(404).send({ error: 'Not found' });
+        }
+        return response.status(200).send(file);
+      });
+    return null;
   }
 
   static async createFile(localPath, contentBase64) {
