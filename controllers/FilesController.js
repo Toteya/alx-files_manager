@@ -11,8 +11,7 @@ class FilesController {
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (!userId) {
-      response.status(401).send({ error: 'Unauthorized' });
-      return null;
+      return response.status(401).send({ error: 'Unauthorized' });
     }
     const {
       name,
@@ -23,28 +22,23 @@ class FilesController {
     } = request.body;
 
     if (!name) {
-      response.status(400).send({ error: 'Missing name' });
-      return null;
+      return response.status(400).send({ error: 'Missing name' });
     }
     if (!type || !(['folder', 'file', 'image'].includes(type))) {
-      response.status(400).send({ error: 'Missing type' });
-      return null;
+      return response.status(400).send({ error: 'Missing type' });
     }
     if (!data && type !== 'folder') {
-      response.status(400).send({ error: 'Missing data' });
-      return null;
+      return response.status(400).send({ error: 'Missing data' });
     }
 
     const files = dbClient.db.collection('files');
     if (parentId) {
       const file = await files.findOne({ _id: ObjectId(parentId) });
       if (!file) {
-        response.status(400).send({ error: 'Parent not found' });
-        return null;
+        return response.status(400).send({ error: 'Parent not found' });
       }
       if (file.type !== 'folder') {
-        response.status(400).send({ error: 'Parent is not a folder' });
-        return null;
+        return response.status(400).send({ error: 'Parent is not a folder' });
       }
     }
 
@@ -63,7 +57,7 @@ class FilesController {
         isPublic,
       })
         .then((result) => {
-          response.status(201).send(result.ops[0]);
+          return response.status(201).send(result.ops[0]);
         });
       return null;
     }
@@ -80,7 +74,7 @@ class FilesController {
       localPath,
     })
       .then((result) => {
-        response.status(201).send(result.ops[0]);
+        return response.status(201).send(result.ops[0]);
       });
     return null;
   }
@@ -110,8 +104,7 @@ class FilesController {
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (!userId) {
-      response.status(401).send({ error: 'Unauthorized' });
-      return null;
+      return response.status(401).send({ error: 'Unauthorized' });
     }
 
     // Get query parameters
